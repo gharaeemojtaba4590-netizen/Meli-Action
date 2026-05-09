@@ -1,3 +1,4 @@
+```yaml
 name: دانلودر لینک مستقیم
 
 on:
@@ -63,22 +64,25 @@ jobs:
           curl -L --fail --retry 3 --progress-bar \
                -o "temp_dl/$FILENAME" \
                "${{ github.event.inputs.file_url }}"
-          
+
           echo "filename=$FILENAME" >> $GITHUB_OUTPUT
           echo "filepath=temp_dl/$FILENAME" >> $GITHUB_OUTPUT
 
       - name: ✂️ Create Split Archive
+        id: archive
         run: |
           FILEPATH="${{ steps.download.outputs.filepath }}"
           PASS="${{ github.event.inputs.zip_password }}"
           THRESH_MB=${{ github.event.inputs.max_part_mb }}
-          
+
           if [[ "$THRESH_MB" -le 0 ]] || [[ "$THRESH_MB" -gt 1900 ]]; then
             THRESH_MB=1800
           fi
 
-          cd temp_dl
           BASENAME=$(basename "$FILEPATH")
+
+          cd temp_dl
+
           ARCHIVE_BASE="${BASENAME%.*}_$(date +%Y%m%d_%H%M%S)"
 
           echo "Creating archive (~${THRESH_MB}MB parts)..."
@@ -93,8 +97,9 @@ jobs:
           if [ -f "${ARCHIVE_BASE}.7z.001" ] && [ ! -f "${ARCHIVE_BASE}.7z.002" ]; then
             mv "${ARCHIVE_BASE}.7z.001" "${ARCHIVE_BASE}.7z"
           fi
-          
+
           echo "archive_name=${ARCHIVE_BASE}.7z" >> $GITHUB_OUTPUT
+
           cd ..
 
       - name: 📅 Get Current Date
@@ -106,8 +111,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           mkdir -p downloads
+
           mv temp_dl/* downloads/ 2>/dev/null || true
+
           git add downloads/
           git commit -m "⬇️ Direct Download: ${{ steps.download.outputs.filename }} [skip ci]" || echo "Nothing to commit"
           git push
@@ -116,7 +124,7 @@ jobs:
         if: github.event.inputs.upload_method == 'release (GitHub Releases)'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.release_tag || format('direct-{0}', github.run_number) }}
+          tag_name: ${{ github.event.inputs.release_tag || format('direct-{0}', github.run_number) }}
           name: ${{ format('Direct Download - {0}', steps.download.outputs.filename) }}
           body: |
             **📦 Direct File Download**
@@ -139,3 +147,4 @@ jobs:
       - name: 🧹 Cleanup
         if: always()
         run: rm -rf temp_dl 2>/dev/null || true
+```
